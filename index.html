@@ -2,10 +2,12 @@
 <html lang="zh-TW" class="h-full light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Route Planner - 線上地址最短路徑規劃</title>
-
-    <!-- Tailwind CSS CDN -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>RouteOptim PRO - 線上路徑最佳化系統</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -14,11 +16,11 @@
                 extend: {
                     colors: {
                         brand: {
-                            50: '#eff6ff',
-                            100: '#dbeafe',
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                            700: '#1d4ed8',
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#2563eb',
+                            600: '#1d4ed8',
+                            700: '#1e40af',
                         }
                     }
                 }
@@ -26,23 +28,29 @@
         }
     </script>
 
-    <!-- Leaflet Map CSS & JS -->
+    <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-    <!-- Sortable.js for Drag and Drop list ordering -->
+    <!-- SortableJS for Touch Drag and Drop -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
 
+    <!-- Custom CSS Styles -->
     <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); }
-        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(107, 114, 128, 0.8); }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.03); }
+        ::-webkit-scrollbar-thumb { background: rgba(156,163,175,0.4); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(107,114,128,0.7); }
 
-        .leaflet-popup-content-wrapper { border-radius: 0.75rem; padding: 4px; }
+        #map {
+            width: 100%;
+            height: 100%;
+            background-color: #f8fafc;
+            z-index: 1;
+        }
 
         .custom-marker-pin {
             width: 32px;
@@ -52,100 +60,118 @@
             transform: rotate(-45deg);
             left: 50%;
             top: 50%;
-            margin: -20px 0 0 -16px;
+            margin: -22px 0 0 -16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-            border: 2px solid white;
-            transition: transform 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            border: 2px solid #ffffff;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .custom-marker-pin:hover {
-            transform: rotate(-45deg) scale(1.15);
+            transform: rotate(-45deg) scale(1.2);
+            z-index: 999 !important;
         }
         .custom-marker-pin span {
             transform: rotate(45deg);
             color: white;
             font-weight: 800;
-            font-size: 12px;
+            font-size: 11px;
+            letter-spacing: -0.5px;
         }
 
         .active-stop-card {
             border-color: #3b82f6 !important;
             background-color: rgba(59, 130, 246, 0.08) !important;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
         }
+
+        /* Safe area spacing for iOS Notch & Home Indicator */
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+        .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
     </style>
 </head>
-<body class="h-full bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+<body class="h-full bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col font-sans antialiased select-none md:select-auto">
 
-    <!-- Navigation Header -->
-    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between shadow-sm z-20">
-        <div class="flex items-center space-x-3">
-            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-md flex items-center justify-center">
-                <i class="fa-solid fa-route text-xl"></i>
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2.5 flex items-center justify-between shadow-xs z-30 pt-safe">
+        <div class="flex items-center space-x-2.5">
+            <div class="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2 rounded-xl shadow-md flex items-center justify-center">
+                <i class="fa-solid fa-route text-lg"></i>
             </div>
             <div>
-                <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-tight">RouteOptim PRO</h1>
-                <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">多站點最短路徑最佳化與視覺化地圖排程系統</p>
+                <h1 class="text-base font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-1.5">
+                    RouteOptim PRO
+                    <span class="text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-semibold">2-Opt Engine</span>
+                </h1>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">多站點最佳化與即時道路導航排程</p>
             </div>
         </div>
 
-        <!-- Header Actions -->
         <div class="flex items-center space-x-2">
-            <button onclick="toggleModal('batchModal')" class="px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 transition flex items-center gap-1.5 shadow-sm">
+            <!-- Mobile View Switcher Tabs -->
+            <div class="flex md:hidden bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
+                <button id="tabListBtn" onclick="switchMobileTab('list')" class="px-3 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs">清單</button>
+                <button id="tabMapBtn" onclick="switchMobileTab('map')" class="px-3 py-1 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300">地圖</button>
+            </div>
+
+            <!-- Batch Modal Opener -->
+            <button onclick="toggleModal('batchModal')" class="hidden sm:flex px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 transition items-center gap-1.5 shadow-2xs">
                 <i class="fa-solid fa-file-import text-blue-500"></i>
                 <span>批次匯入</span>
             </button>
 
-            <!-- Dark / Light Theme Toggle -->
+            <!-- Theme Toggle Button -->
             <button onclick="toggleTheme()" class="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition" title="切換主題">
-                <i id="themeIcon" class="fa-solid fa-moon"></i>
+                <i id="themeIcon" class="fa-solid fa-moon text-sm"></i>
             </button>
         </div>
     </header>
 
-    <!-- Main Content Area -->
     <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
 
-        <!-- Left Sidebar: Search & Address Stop Management -->
-        <aside class="w-full md:w-96 lg:w-[430px] bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col z-10 shadow-lg md:shadow-none h-1/2 md:h-full">
+        <!-- Left Control Panel & Stop List -->
+        <aside id="sidebarPanel" class="w-full md:w-96 lg:w-[420px] bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col z-20 shadow-lg md:shadow-none h-full overflow-hidden">
             
-            <!-- Address Input & Configuration Controls -->
-            <div class="p-4 border-b border-slate-200 dark:border-slate-700 space-y-3 bg-slate-50/50 dark:bg-slate-800/50">
-                <!-- Autocomplete Address Search Input -->
+            <!-- Address Input Form Area -->
+            <div class="p-3.5 border-b border-slate-200 dark:border-slate-700 space-y-3 bg-slate-50/70 dark:bg-slate-800/70">
+                <!-- Autocomplete Address Search Box -->
                 <div class="relative">
-                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">搜尋並新增地點 (關鍵字或地址)</label>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">搜尋新增停靠地點</label>
+                        <span class="text-[10px] text-blue-600 dark:text-blue-400 font-medium">台灣地區限定比對</span>
+                    </div>
                     <div class="flex gap-2">
                         <div class="relative flex-1">
-                            <input type="text" id="addressInput" placeholder="請輸入地址或名稱 (如: 逢甲夜市, 崇德路...)" 
-                                class="w-full pl-9 pr-8 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition dark:text-white"
+                            <input type="text" id="addressInput" placeholder="請輸入地址或地名 (如: 台中火車站)..." 
+                                class="w-full pl-9 pr-8 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition dark:text-white"
                                 autocomplete="off">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
                             <button id="clearSearchBtn" onclick="clearSearchInput()" class="hidden absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
-                        <button onclick="searchAndAddLocation()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition shadow-md shadow-blue-500/20 shrink-0">
-                            新增
+                        <button onclick="searchAndAddLocation()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-md shadow-blue-500/20 shrink-0 flex items-center gap-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>新增</span>
                         </button>
                     </div>
-                    <!-- Autocomplete Suggestions Menu -->
+                    <!-- Autocomplete Dropdown List -->
                     <div id="autocompleteResults" class="hidden absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto z-50 divide-y divide-slate-100 dark:divide-slate-700"></div>
                 </div>
 
-                <!-- Mode & Endpoint Constraints -->
-                <div class="grid grid-cols-2 gap-2 pt-1">
+                <!-- Transport Mode & Endpoint Constraints -->
+                <div class="grid grid-cols-2 gap-2 pt-0.5">
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">交通模式</label>
-                        <select id="transportMode" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-2 font-medium">
+                        <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">移動模式</label>
+                        <select id="transportMode" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-1.5 font-medium dark:text-slate-200">
                             <option value="driving">🚗 汽車 (Driving)</option>
-                            <option value="cycling">🚲 自行車 (Cycling)</option>
+                            <option value="cycling">🚲 單車 (Cycling)</option>
                             <option value="walking">🚶 步行 (Walking)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">終點設定</label>
-                        <select id="endpointConstraint" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-2 font-medium">
+                        <label class="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">終點約束</label>
+                        <select id="endpointConstraint" class="w-full text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg p-1.5 font-medium dark:text-slate-200">
                             <option value="return_start">🔄 回到起點 (圓滿巡迴)</option>
                             <option value="fixed_last">📌 固定最後一站為終點</option>
                             <option value="any">🔀 自動尋找最佳終點</option>
@@ -153,72 +179,74 @@
                     </div>
                 </div>
 
-                <!-- Toolbar & Departure Time -->
-                <div class="flex items-center justify-between pt-1 text-xs">
-                    <div class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                <!-- Departure Time & Reset Controls -->
+                <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <div class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 text-[11px]">
                         <i class="fa-regular fa-clock text-blue-500"></i>
-                        <span>出發時間:</span>
-                        <input type="time" id="departureTime" value="09:00" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-xs">
+                        <span>預計出發:</span>
+                        <input type="time" id="departureTime" value="09:00" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-xs font-semibold">
                     </div>
 
-                    <button onclick="clearAllStopsExceptStart()" class="text-xs text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 font-medium transition flex items-center gap-1">
-                        <i class="fa-solid fa-trash-can"></i> 清除目的地
+                    <button onclick="clearAllStops()" class="text-[11px] text-rose-500 hover:text-rose-600 font-semibold transition flex items-center gap-1">
+                        <i class="fa-solid fa-trash-can"></i> 清除清單
                     </button>
                 </div>
             </div>
 
-            <!-- Stop Item List Container -->
-            <div class="flex-1 overflow-y-auto p-4 space-y-2" id="stopsListContainer">
-                <div class="flex items-center justify-between text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-1">
-                    <span>行程站點 (<span id="stopCount">1</span>)</span>
-                    <span class="text-[10px] normal-case text-slate-400">可上下拖曳調整順序</span>
+            <!-- Dynamic Stops List -->
+            <div class="flex-1 overflow-y-auto p-3 space-y-2" id="stopsListContainer">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-1">
+                    <span>行程停靠站點 (<span id="stopCount">1</span>)</span>
+                    <span class="text-[10px] normal-case text-slate-400">可上下拖曳排序</span>
                 </div>
                 
                 <ul id="stopsList" class="space-y-2">
-                    <!-- Dynamic stop elements will be appended here -->
+                    <!-- Dynamic stop elements will be rendered here -->
                 </ul>
 
-                <div id="emptyState" class="hidden py-8 text-center text-slate-400 dark:text-slate-500">
-                    <i class="fa-solid fa-map-location-dot text-3xl mb-2 text-slate-300 dark:text-slate-600"></i>
-                    <p class="text-xs font-medium">請在上方輸入框新增拜訪地點，或點擊地圖選擇地點</p>
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden py-12 text-center text-slate-400 dark:text-slate-500">
+                    <i class="fa-solid fa-map-location-dot text-4xl mb-3 text-slate-300 dark:text-slate-600"></i>
+                    <p class="text-xs font-medium">尚未加入任何地點</p>
+                    <p class="text-[11px] mt-1 text-slate-400">請在上方搜尋地址或直接點擊地圖新增</p>
                 </div>
             </div>
 
-            <!-- Route Optimization Action Bar & Stats Summary -->
-            <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-3">
-                <button id="optimizeBtn" onclick="optimizeAndCalculateRoute()" class="w-full py-3 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition shadow-lg flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
-                    <span>計算並最佳化最短路線</span>
+            <!-- Optimization Action & Route Analytics -->
+            <div class="p-3.5 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-2.5 pb-safe">
+                <button id="optimizeBtn" onclick="optimizeAndCalculateRoute()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-blue-500/25 transition active:scale-[0.98] flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+                    <span>計算最佳最短路徑</span>
                 </button>
 
-                <!-- Route Analytics Summary -->
-                <div id="routeSummary" class="hidden p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700/80 space-y-2.5 text-xs">
-                    <div id="savingsBadge" class="hidden flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-lg font-medium">
-                        <span><i class="fa-solid fa-circle-check mr-1"></i> 已完成最佳化順序</span>
-                        <span id="savingsPercentage" class="font-bold">節省 0%</span>
+                <!-- Analytics Dashboard -->
+                <div id="routeSummary" class="hidden p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700/80 space-y-2 text-xs">
+                    <div id="savingsBadge" class="hidden flex items-center justify-between bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-lg text-[11px] font-bold">
+                        <span><i class="fa-solid fa-circle-check mr-1"></i> 已完成優化</span>
+                        <span id="savingsPercentage">省時 0%</span>
                     </div>
 
                     <div class="grid grid-cols-3 gap-2 text-center">
                         <div class="bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
-                            <div class="text-[10px] text-slate-400">總里程</div>
-                            <div id="totalDistance" class="font-bold text-sm text-slate-800 dark:text-slate-100 mt-0.5">0 km</div>
+                            <div class="text-[10px] text-slate-400 font-medium">總行駛里程</div>
+                            <div id="totalDistance" class="font-black text-xs text-slate-800 dark:text-slate-100 mt-0.5">0 km</div>
                         </div>
                         <div class="bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
-                            <div class="text-[10px] text-slate-400">行車時間</div>
-                            <div id="totalDuration" class="font-bold text-sm text-slate-800 dark:text-slate-100 mt-0.5">0 分</div>
+                            <div class="text-[10px] text-slate-400 font-medium">純開車時間</div>
+                            <div id="totalDuration" class="font-black text-xs text-slate-800 dark:text-slate-100 mt-0.5">0 分</div>
                         </div>
                         <div class="bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
-                            <div class="text-[10px] text-slate-400">預計總耗時</div>
-                            <div id="totalTripTime" class="font-bold text-sm text-slate-800 dark:text-slate-100 mt-0.5">0 分</div>
+                            <div class="text-[10px] text-slate-400 font-medium">預計總耗時</div>
+                            <div id="totalTripTime" class="font-black text-xs text-slate-800 dark:text-slate-100 mt-0.5">0 分</div>
                         </div>
                     </div>
 
                     <div class="pt-1 flex gap-2">
-                        <button onclick="exportToGoogleMaps()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium text-xs transition flex items-center justify-center gap-1.5 shadow-sm">
-                            <i class="fa-map-marked-alt"></i>
-                            <span>Google 地圖導航</span>
+                        <button onclick="exportToGoogleMaps()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-diamond-turn-right"></i>
+                            <span>一鍵開啟 Google 導航</span>
                         </button>
-                        <button onclick="toggleModal('itineraryModal')" class="py-2 px-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-xs transition" title="分段導航細節">
+                        <button onclick="toggleModal('itineraryModal')" class="py-2 px-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-xs transition" title="檢視詳細行程表">
                             <i class="fa-solid fa-list-check"></i>
                         </button>
                     </div>
@@ -226,122 +254,141 @@
             </div>
         </aside>
 
-        <!-- Right Area: Interactive Map -->
-        <main class="flex-1 relative h-1/2 md:h-full bg-slate-100 dark:bg-slate-950">
-            <div id="map" class="w-full h-full z-0"></div>
+        <!-- Right Interactive Map Engine Container -->
+        <main id="mapPanel" class="flex-1 relative h-full bg-slate-100 dark:bg-slate-950 hidden md:block">
+            <div id="map"></div>
 
-            <!-- Loading Spinner Overlay -->
-            <div id="loadingOverlay" class="hidden absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-30 flex items-center justify-center">
-                <div class="bg-white dark:bg-slate-800 px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-200 dark:border-slate-700">
-                    <div class="w-6 h-6 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span id="loadingText" class="text-sm font-medium text-slate-700 dark:text-slate-200">正在處理中...</span>
-                </div>
+            <!-- Map Layer Switcher -->
+            <div class="absolute top-3 right-3 z-10 bg-white/90 dark:bg-slate-800/90 backdrop-blur rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md p-1 flex gap-1">
+                <button onclick="switchTileLayer('esri')" class="px-2.5 py-1 text-[11px] font-bold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">高清底圖</button>
+                <button onclick="switchTileLayer('osm')" class="px-2.5 py-1 text-[11px] font-medium rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300">標準地圖</button>
             </div>
 
-            <!-- Map Interactive Hint -->
-            <div class="absolute bottom-4 right-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 shadow-md pointer-events-none z-10 hidden sm:block">
-                <i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> 提示：可直接點擊地圖任意位置新增地點
+            <!-- Loading Spinner Overlay -->
+            <div id="loadingOverlay" class="hidden absolute inset-0 bg-slate-900/40 backdrop-blur-xs z-30 flex items-center justify-center">
+                <div class="bg-white dark:bg-slate-800 px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-200 dark:border-slate-700">
+                    <div class="w-5 h-5 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span id="loadingText" class="text-xs font-semibold text-slate-700 dark:text-slate-200">正在計算最省時路徑...</span>
+                </div>
             </div>
         </main>
     </div>
 
     <!-- Batch Import Modal -->
-    <div id="batchModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <i class="fa-solid fa-file-csv text-blue-500"></i> 批次匯入地址清單
+    <div id="batchModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-4 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-file-csv text-blue-500"></i> 批次匯入多個地址
                 </h3>
-                <button onclick="toggleModal('batchModal')" class="text-slate-400 hover:text-slate-600 text-lg">
+                <button onclick="toggleModal('batchModal')" class="text-slate-400 hover:text-slate-600 text-base">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400">請貼上多行地點或地址（每行一個地點）：</p>
-            <textarea id="batchTextarea" rows="6" placeholder="台中火車站&#10;逢甲夜市&#10;高美濕地&#10;國立臺灣美術館" class="w-full p-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-            <div class="flex justify-end gap-2 pt-2">
-                <button onclick="toggleModal('batchModal')" class="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-medium">取消</button>
-                <button onclick="processBatchImport()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-medium shadow-md">批次解析匯入</button>
+            <p class="text-xs text-slate-500 dark:text-slate-400">每行輸入一個地址或地名：</p>
+            <textarea id="batchTextarea" rows="5" placeholder="台中火車站&#10;逢甲夜市&#10;高美濕地" class="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"></textarea>
+            <div class="flex justify-end gap-2 pt-1">
+                <button onclick="toggleModal('batchModal')" class="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-medium">取消</button>
+                <button onclick="processBatchImport()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm">開始解析</button>
             </div>
         </div>
     </div>
 
-    <!-- Step-by-Step Itinerary Modal -->
-    <div id="itineraryModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-xl w-full max-h-[80vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <i class="fa-solid fa-route text-blue-500"></i> 詳細導航與抵達預估時間表 (ETA)
+    <!-- Detailed Itinerary Modal -->
+    <div id="itineraryModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full max-h-[80vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div class="p-3.5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-route text-blue-500"></i> 分段行車時間表 (ETA)
                 </h3>
-                <button onclick="toggleModal('itineraryModal')" class="text-slate-400 hover:text-slate-600 text-lg">
+                <button onclick="toggleModal('itineraryModal')" class="text-slate-400 hover:text-slate-600 text-base">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <div id="itineraryContent" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+            <div id="itineraryContent" class="flex-1 overflow-y-auto p-3.5 space-y-2.5"></div>
             <div class="p-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-end">
-                <button onclick="toggleModal('itineraryModal')" class="px-4 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-medium">關閉</button>
+                <button onclick="toggleModal('itineraryModal')" class="px-4 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold">關閉</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Default Starting Point: 台中市神岡區神洲路86巷15弄5號
+        // Exact User Default Starting Point (Taichung Shengang)
         const DEFAULT_START_STOP = {
-            id: 'start-fixed-stop',
-            name: '台中市神岡區神洲路86巷15弄5號 (預設起點)',
+            id: 'start-preset-node',
+            name: '台中市神岡區神洲路86巷15弄5號',
             lat: 24.2629,
             lng: 120.7001,
             duration: 0
         };
 
-        // App State
         let stops = [ { ...DEFAULT_START_STOP } ];
         let map, markersLayer, routeLayer;
-        let originalDistance = 0;
+        let activeTileLayer;
+        let tileLayers = {};
         let debounceTimer = null;
 
-        // Initialize Map & Application
+        // Initialize Application Logic
         window.onload = function() {
-            initMap();
-            initSortable();
-            initAutocomplete();
+            initMapEngine();
+            initSortableList();
+            initAutocompleteSearch();
             renderStopsList();
             updateMarkers();
         };
 
-        function initMap() {
+        function initMapEngine() {
             map = L.map('map', { zoomControl: false }).setView([DEFAULT_START_STOP.lat, DEFAULT_START_STOP.lng], 13);
-            L.control.zoom({ position: 'topright' }).addTo(map);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-            // Use CartoDB Positron for high reliability
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            // Esri World Street Map (Keyless & Highly Reliable)
+            tileLayers.esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
                 maxZoom: 19,
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
+                attribution: '&copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ'
+            });
+
+            // OpenStreetMap Fast Mirror
+            tileLayers.osm = L.tileLayer('https://tile.openstreetmap.jp/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                attribution: '&copy; OpenStreetMap contributors'
+            });
+
+            activeTileLayer = tileLayers.esri;
+            activeTileLayer.addTo(map);
 
             markersLayer = L.layerGroup().addTo(map);
             routeLayer = L.layerGroup().addTo(map);
 
-            // Ensure map updates view on window resize
-            window.addEventListener('resize', () => { map.invalidateSize(); });
-            setTimeout(() => { map.invalidateSize(); }, 300);
+            // Observer to force map resize
+            const resizeObserver = new ResizeObserver(() => {
+                map.invalidateSize();
+            });
+            resizeObserver.observe(document.getElementById('map'));
 
-            // Map Click to Add Stop
+            // Map click to add stop
             map.on('click', async function(e) {
                 const { lat, lng } = e.latlng;
-                showLoading(true, "正在查詢點擊位置地址...");
+                showLoading(true, "倒查點擊位置...");
                 try {
                     const name = await reverseGeocode(lat, lng);
                     addStop({ name, lat, lng, duration: 15 });
                 } catch (err) {
-                    addStop({ name: `地圖點選地點 (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng, duration: 15 });
+                    addStop({ name: `自訂地點 (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng, duration: 15 });
                 } finally {
                     showLoading(false);
                 }
             });
         }
 
-        // Autocomplete & Taiwan localized Search
-        function initAutocomplete() {
+        function switchTileLayer(type) {
+            if (activeTileLayer) map.removeLayer(activeTileLayer);
+            if (tileLayers[type]) {
+                activeTileLayer = tileLayers[type];
+                activeTileLayer.addTo(map);
+            }
+        }
+
+        function initAutocompleteSearch() {
             const input = document.getElementById('addressInput');
             const resultsContainer = document.getElementById('autocompleteResults');
 
@@ -358,9 +405,7 @@
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(async () => {
                     try {
-                        // Priority search within Taiwan area
-                        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=6&countrycodes=tw&accept-language=zh-TW`;
-                        const res = await fetch(url);
+                        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=tw&accept-language=zh-TW`);
                         const data = await res.json();
                         
                         resultsContainer.innerHTML = '';
@@ -368,14 +413,12 @@
                             data.forEach(item => {
                                 const div = document.createElement('div');
                                 div.className = "p-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer text-xs flex items-center gap-2 transition";
-                                const parts = item.display_name.split(',');
-                                const title = parts[0];
-                                const sub = parts.slice(1, 3).join(',');
-
+                                const title = item.display_name.split(',')[0];
+                                const sub = item.display_name.split(',').slice(1, 3).join(',');
                                 div.innerHTML = `
                                     <i class="fa-solid fa-location-dot text-blue-500 shrink-0"></i>
                                     <div class="truncate">
-                                        <div class="font-medium text-slate-800 dark:text-slate-100">${title}</div>
+                                        <div class="font-bold text-slate-800 dark:text-slate-100">${title}</div>
                                         <div class="text-[10px] text-slate-400 truncate">${sub}</div>
                                     </div>
                                 `;
@@ -399,7 +442,7 @@
                     } catch (e) {
                         console.error("Autocomplete error:", e);
                     }
-                }, 250);
+                }, 300);
             });
         }
 
@@ -408,17 +451,10 @@
             const query = input.value.trim();
             if (!query) return;
 
-            showLoading(true, "搜尋地址中...");
+            showLoading(true, "正在搜尋地址...");
             try {
-                // Fallback attempt with broader query
-                let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=tw&accept-language=zh-TW`);
-                let data = await res.json();
-
-                if (!data || data.length === 0) {
-                    res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-                    data = await res.json();
-                }
-
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=tw`);
+                const data = await res.json();
                 if (data && data.length > 0) {
                     addStop({
                         name: data[0].display_name.split(',')[0] || query,
@@ -430,7 +466,7 @@
                     document.getElementById('autocompleteResults').classList.add('hidden');
                     document.getElementById('clearSearchBtn').classList.add('hidden');
                 } else {
-                    alert("找不到該地址，請嘗試輸入更詳細的道路或區名。");
+                    alert("找不到該地址，請嘗試輸入更詳細的關鍵字。");
                 }
             } catch (err) {
                 alert("搜尋失敗，請檢查網路連線。");
@@ -442,13 +478,10 @@
         async function reverseGeocode(lat, lng) {
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=zh-TW`);
             const data = await res.json();
-            if (data && data.display_name) {
-                return data.display_name.split(',')[0];
-            }
-            return `地點 (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+            return data && data.display_name ? data.display_name.split(',')[0] : `地點 (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
         }
 
-        function initSortable() {
+        function initSortableList() {
             const el = document.getElementById('stopsList');
             Sortable.create(el, {
                 animation: 150,
@@ -463,7 +496,6 @@
                     stops = reordered;
                     renderStopsList();
                     updateMarkers();
-                    clearRouteDisplay();
                 }
             });
         }
@@ -479,15 +511,10 @@
             stops.push(newStop);
             renderStopsList();
             updateMarkers();
-            clearRouteDisplay();
             map.panTo([newStop.lat, newStop.lng]);
         }
 
         function removeStop(id) {
-            if (id === DEFAULT_START_STOP.id && stops.length === 1) {
-                alert("起點無法刪除");
-                return;
-            }
             stops = stops.filter(s => s.id !== id);
             renderStopsList();
             updateMarkers();
@@ -499,7 +526,7 @@
             if (stop) stop.duration = parseInt(minutes) || 0;
         }
 
-        function clearAllStopsExceptStart() {
+        function clearAllStops() {
             stops = [ { ...DEFAULT_START_STOP } ];
             renderStopsList();
             updateMarkers();
@@ -508,8 +535,16 @@
 
         function renderStopsList() {
             const container = document.getElementById('stopsList');
+            const emptyState = document.getElementById('emptyState');
             document.getElementById('stopCount').textContent = stops.length;
             container.innerHTML = '';
+
+            if (stops.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
 
             stops.forEach((stop, index) => {
                 const isStart = index === 0;
@@ -532,18 +567,18 @@
                 li.innerHTML = `
                     <div class="flex items-center gap-2 min-w-0 flex-1">
                         <i class="fa-solid fa-grip-vertical drag-handle text-slate-300 dark:text-slate-600 cursor-grab hover:text-slate-500 px-1"></i>
-                        <span class="px-2 py-0.5 ${badgeBg} text-white font-black text-[10px] rounded-full shrink-0 shadow-sm">${badgeText}</span>
+                        <span class="px-2 py-0.5 ${badgeBg} text-white font-black text-[10px] rounded-full shrink-0 shadow-xs">${badgeText}</span>
                         <div class="min-w-0 flex-1 cursor-pointer" onclick="focusStop('${stop.id}', ${stop.lat}, ${stop.lng})">
-                            <div class="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">${stop.name}</div>
-                            <div class="text-[10px] text-slate-400">停留: 
-                                <input type="number" min="0" value="${stop.duration}" onclick="event.stopPropagation()" onchange="updateStopDuration('${stop.id}', this.value)" class="w-10 px-1 py-0.2 bg-white dark:bg-slate-800 border rounded text-center text-slate-700 dark:text-slate-200"> 分鐘
+                            <div class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${stop.name}</div>
+                            <div class="text-[10px] text-slate-400">停留時間: 
+                                <input type="number" min="0" value="${stop.duration}" onclick="event.stopPropagation()" onchange="updateStopDuration('${stop.id}', this.value)" class="w-10 px-1 py-0.2 bg-white dark:bg-slate-800 border rounded text-center text-slate-700 dark:text-slate-200 font-semibold"> 分鐘
                             </div>
                         </div>
                     </div>
-                    ${!isStart ? `
+                    ${stops.length > 1 ? `
                     <button onclick="removeStop('${stop.id}')" class="text-slate-400 hover:text-rose-500 p-1 transition">
                         <i class="fa-solid fa-xmark text-xs"></i>
-                    </button>` : '<span class="text-[10px] text-emerald-600 font-medium px-1">起點</span>'}
+                    </button>` : ''}
                 `;
                 container.appendChild(li);
             });
@@ -554,6 +589,9 @@
             document.querySelectorAll('.stop-card').forEach(card => card.classList.remove('active-stop-card'));
             const activeCard = document.querySelector(`li[data-id="${id}"]`);
             if (activeCard) activeCard.classList.add('active-stop-card');
+
+            // Switch to map view on mobile
+            switchMobileTab('map');
         }
 
         function updateMarkers() {
@@ -577,17 +615,13 @@
 
                 const customIcon = L.divIcon({
                     className: 'custom-pin-wrapper',
-                    html: `
-                        <div class="custom-marker-pin" style="background-color: ${color}">
-                            <span>${label}</span>
-                        </div>
-                    `,
+                    html: `<div class="custom-marker-pin" style="background-color: ${color}"><span>${label}</span></div>`,
                     iconSize: [30, 42],
                     iconAnchor: [15, 42]
                 });
 
                 const marker = L.marker([stop.lat, stop.lng], { icon: customIcon })
-                    .bindPopup(`<strong class="text-xs">${stop.name}</strong><br><span class="text-[11px]">預計停留 ${stop.duration} 分鐘</span>`);
+                    .bindPopup(`<strong class="text-xs">${stop.name}</strong><br><span class="text-[10px] text-slate-500">預計停留 ${stop.duration} 分鐘</span>`);
                 
                 markersLayer.addLayer(marker);
                 bounds.extend([stop.lat, stop.lng]);
@@ -598,59 +632,51 @@
             }
         }
 
-        // TSP Route Optimization
         async function optimizeAndCalculateRoute() {
             if (stops.length < 2) {
-                alert("請至少在列表中加入 1 個目的地（共 2 個地點以上）以進行路徑計算。");
+                alert("請至少新增 2 個地點（包含起點）以進行最佳化路線計算。");
                 return;
             }
 
-            showLoading(true, "正在計算最短路徑矩陣...");
+            showLoading(true, "正在計算距離矩陣...");
             const mode = document.getElementById('transportMode').value;
             const constraint = document.getElementById('endpointConstraint').value;
 
             try {
-                // Fetch unoptimized original route distance for metrics
-                const unoptimizedRoute = await fetchOSRMRoute(stops, mode, constraint === 'return_start');
-                originalDistance = unoptimizedRoute ? unoptimizedRoute.distance : 0;
-
-                // OSRM Matrix API
+                // Fetch OSRM Matrix
                 const coords = stops.map(s => `${s.lng},${s.lat}`).join(';');
-                const matrixUrl = `https://router.project-osrm.org/table/v1/${mode}/${coords}`;
-                
-                const matrixRes = await fetch(matrixUrl);
+                const matrixRes = await fetch(`https://router.project-osrm.org/table/v1/${mode}/${coords}`);
                 const matrixData = await matrixRes.json();
 
                 if (!matrixData || !matrixData.durations) {
                     throw new Error("無法取得距離矩陣");
                 }
 
-                showLoading(true, "執行 2-Opt TSP 最佳化演算法...");
+                showLoading(true, "正在執行 2-Opt 最佳化路徑排列...");
                 const optimizedIndices = solveAdvancedTSP(matrixData.durations, constraint);
 
-                // Reorder stops array according to TSP solver output
+                // Reorder stops list
                 stops = optimizedIndices.map(idx => stops[idx]);
                 renderStopsList();
                 updateMarkers();
 
-                // Draw full optimized road geometry from OSRM
-                showLoading(true, "繪製路徑圖資中...");
+                // Fetch Full Optimized OSRM Polyline Route
+                showLoading(true, "繪製真實道路航線...");
                 const route = await fetchOSRMRoute(stops, mode, constraint === 'return_start');
                 
                 if (route) {
                     renderRouteOnMap(route);
-                    displayAnalytics(route, originalDistance);
+                    displayAnalytics(route);
                 }
 
             } catch (err) {
                 console.error("Optimization failed:", err);
-                alert("計算過程中取得路徑圖資失敗，將以直接連線方式顯示。");
+                alert("最佳化過程發生異常，請重試。");
             } finally {
                 showLoading(false);
             }
         }
 
-        // 2-Opt TSP Algorithm
         function solveAdvancedTSP(matrix, constraint) {
             const n = matrix.length;
             const returnToStart = constraint === 'return_start';
@@ -659,7 +685,6 @@
             let bestPath = [];
             let minCost = Infinity;
 
-            // Multi-start Nearest Neighbor Initializer
             for (let start = 0; start < (fixedLast ? 1 : n); start++) {
                 const visited = new Array(n).fill(false);
                 const path = [start];
@@ -686,9 +711,7 @@
                 if (fixedLast) path.push(n - 1);
 
                 let cost = 0;
-                for (let i = 0; i < path.length - 1; i++) {
-                    cost += matrix[path[i]][path[i+1]];
-                }
+                for (let i = 0; i < path.length - 1; i++) cost += matrix[path[i]][path[i+1]];
                 if (returnToStart) cost += matrix[path[path.length - 1]][path[0]];
 
                 if (cost < minCost) {
@@ -697,7 +720,7 @@
                 }
             }
 
-            // 2-Opt Improvement Loop
+            // 2-Opt Refinement
             let improved = true;
             let iterations = 0;
             const endIdx = fixedLast ? bestPath.length - 2 : bestPath.length - 1;
@@ -712,9 +735,7 @@
                         newPath.splice(i, j - i + 1, ...sub);
 
                         let newCost = 0;
-                        for (let k = 0; k < newPath.length - 1; k++) {
-                            newCost += matrix[newPath[k]][newPath[k+1]];
-                        }
+                        for (let k = 0; k < newPath.length - 1; k++) newCost += matrix[newPath[k]][newPath[k+1]];
                         if (returnToStart) newCost += matrix[newPath[newPath.length - 1]][newPath[0]];
 
                         if (newCost < minCost) {
@@ -756,7 +777,7 @@
             map.fitBounds(geojsonLayer.getBounds(), { padding: [40, 40] });
         }
 
-        function displayAnalytics(route, origDist) {
+        function displayAnalytics(route) {
             const km = (route.distance / 1000).toFixed(1);
             const driveMins = Math.round(route.duration / 60);
             const totalStopMins = stops.reduce((acc, s) => acc + (parseInt(s.duration) || 0), 0);
@@ -765,15 +786,6 @@
             document.getElementById('totalDistance').textContent = `${km} km`;
             document.getElementById('totalDuration').textContent = `${driveMins} 分`;
             document.getElementById('totalTripTime').textContent = `${tripMins} 分`;
-
-            const badge = document.getElementById('savingsBadge');
-            if (origDist > route.distance && origDist > 0) {
-                const savedRatio = (((origDist - route.distance) / origDist) * 100).toFixed(1);
-                document.getElementById('savingsPercentage').textContent = `節省 ${savedRatio}% 里程`;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
 
             document.getElementById('routeSummary').classList.remove('hidden');
             renderItineraryModalDetails(route);
@@ -853,7 +865,7 @@
             let completed = 0;
             lines.forEach(async (line) => {
                 try {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(line)}&limit=1&countrycodes=tw&accept-language=zh-TW`);
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(line)}&limit=1&countrycodes=tw`);
                     const data = await res.json();
                     if (data && data.length > 0) {
                         addStop({
@@ -864,12 +876,33 @@
                         });
                     }
                 } catch (e) {
-                    console.error("Batch geocode error:", e);
+                    console.error("Batch geocode failed:", e);
                 } finally {
                     completed++;
                     if (completed === lines.length) showLoading(false);
                 }
             });
+        }
+
+        function switchMobileTab(tab) {
+            const sidebar = document.getElementById('sidebarPanel');
+            const mapPanel = document.getElementById('mapPanel');
+            const tabListBtn = document.getElementById('tabListBtn');
+            const tabMapBtn = document.getElementById('tabMapBtn');
+
+            if (tab === 'list') {
+                sidebar.classList.remove('hidden');
+                mapPanel.classList.add('hidden');
+                tabListBtn.className = "px-3 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs";
+                tabMapBtn.className = "px-3 py-1 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300";
+            } else {
+                sidebar.classList.add('hidden');
+                mapPanel.classList.remove('hidden');
+                mapPanel.classList.add('flex-1');
+                tabMapBtn.className = "px-3 py-1 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs";
+                tabListBtn.className = "px-3 py-1 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300";
+                setTimeout(() => map.invalidateSize(), 100);
+            }
         }
 
         function toggleModal(id) {
@@ -895,11 +928,11 @@
             if (html.classList.contains('dark')) {
                 html.classList.remove('dark');
                 html.classList.add('light');
-                icon.className = 'fa-solid fa-moon';
+                icon.className = 'fa-solid fa-moon text-sm';
             } else {
                 html.classList.remove('light');
                 html.classList.add('dark');
-                icon.className = 'fa-solid fa-sun text-amber-400';
+                icon.className = 'fa-solid fa-sun text-amber-400 text-sm';
             }
         }
     </script>
